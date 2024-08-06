@@ -1,0 +1,15 @@
+name: TycoonDroppers
+version: 1.0
+main: me.nashplugz.tycoond.TycoonDroppers
+api-version: 1.21
+depend: [Vault]
+commands:
+  plot:
+    description: Manage your plots
+    usage: /plot <create|claim|list|tp>
+  plotnear:
+    description: Teleport to the nearest unclaimed plot
+    usage: /plotnear
+  dropper:
+    description: Create a custom dropper
+    usage: /dropper <block> <item> <interval> <amount> <value>

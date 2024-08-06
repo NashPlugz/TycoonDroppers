@@ -1,0 +1,14 @@
+# Maximum number of droppers a player can have
+
+max-droppers-per-player: 10000
+
+
+# Default dropper settings
+
+default-time-interval: 60
+
+default-drop-amount: 1
+# claims cost and multipliers
+initialClaimCost: 0
+secondPlotCost: 400000.0
+maxPlotsPerPlayer: 5
