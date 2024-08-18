@@ -6,8 +6,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -22,9 +20,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -37,15 +33,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
 
     private Economy economy;
-    private PlotManager plotManager;
-    private TeleportManager teleportManager;
-    private TycoonConfig tycoonConfig;
     private static final String DROPPER_DATA_PREFIX = ChatColor.DARK_GRAY + "Dropper Data: ";
     private final Map<UUID, Long> lastSellTime = new ConcurrentHashMap<>();
     private static final long SELL_COOLDOWN = 1000; // 1 second cooldown
 
+    private static TycoonDroppers instance;
+
     @Override
     public void onEnable() {
+        instance = this;
         getServer().getPluginManager().registerEvents(this, this);
         if (getCommand("dropper") != null) {
             getCommand("dropper").setExecutor(this);
@@ -54,31 +50,11 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
             getLogger().warning("Failed to register 'dropper' command. Is it defined in plugin.yml?");
         }
 
-        if (getCommand("plot") != null) {
-            getCommand("plot").setExecutor(this);
-            getCommand("plot").setTabCompleter(this);
-        } else {
-            getLogger().warning("Failed to register 'plot' command. Is it defined in plugin.yml?");
-        }
-
-        if (getCommand("plotnear") != null) {
-            getCommand("plotnear").setExecutor(this);
-        } else {
-            getLogger().warning("Failed to register 'plotnear' command. Is it defined in plugin.yml?");
-        }
-
         setupEconomy();
-        this.tycoonConfig = new TycoonConfig(this);
-        this.plotManager = new PlotManager(this);
-        this.teleportManager = new TeleportManager(this, plotManager);
+    }
 
-        // Register new world generator
-        World tycoonWorld = getServer().getWorld("CoinCrazeTycoon");
-        if (tycoonWorld == null) {
-            WorldCreator creator = new WorldCreator("CoinCrazeTycoon");
-            creator.generator(new TycoonWorldGenerator());
-            tycoonWorld = creator.createWorld();
-        }
+    public static TycoonDroppers getInstance() {
+        return instance;
     }
 
     private boolean setupEconomy() {
@@ -95,58 +71,7 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (command.getName().equalsIgnoreCase("plot") && args.length > 0) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("This command can only be run by a player.");
-                return true;
-            }
-
-            Player player = (Player) sender;
-
-            if (args[0].equalsIgnoreCase("create")) {
-                if (plotManager.createInitialPlot(player)) {
-                    player.sendMessage(ChatColor.GREEN + "You have created your initial plot.");
-                }
-                return true;
-            } else if (args[0].equalsIgnoreCase("claim")) {
-                if (plotManager.claimPlot(player)) {
-                    player.sendMessage(ChatColor.GREEN + "You have claimed this plot.");
-                }
-                return true;
-            } else if (args[0].equalsIgnoreCase("list")) {
-                List<Plot> playerPlots = plotManager.getPlayerPlots(player.getUniqueId());
-                player.sendMessage(ChatColor.GOLD + "Your plots:");
-                for (int i = 0; i < playerPlots.size(); i++) {
-                    Plot plot = playerPlots.get(i);
-                    player.sendMessage(ChatColor.YELLOW + "" + (i + 1) + ". Plot at " + plot.getX() + ", " + plot.getZ());
-                }
-                return true;
-            } else if (args[0].equalsIgnoreCase("tp") && args.length == 2) {
-                try {
-                    int plotNumber = Integer.parseInt(args[1]) - 1;
-                    List<Plot> playerPlots = plotManager.getPlayerPlots(player.getUniqueId());
-                    if (plotNumber >= 0 && plotNumber < playerPlots.size()) {
-                        Plot plot = playerPlots.get(plotNumber);
-                        plotManager.teleportToPlot(player, plot);
-                        player.sendMessage(ChatColor.GREEN + "Teleported to plot " + (plotNumber + 1));
-                    } else {
-                        player.sendMessage(ChatColor.RED + "Invalid plot number.");
-                    }
-                } catch (NumberFormatException e) {
-                    player.sendMessage(ChatColor.RED + "Invalid plot number.");
-                }
-                return true;
-            }
-        } else if (command.getName().equalsIgnoreCase("plotnear")) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("This command can only be run by a player.");
-                return true;
-            }
-
-            Player player = (Player) sender;
-            plotManager.teleportToNearestUnclaimedPlot(player);
-            return true;
-        } else if (command.getName().equalsIgnoreCase("dropper") && args.length == 6) {
+        if (command.getName().equalsIgnoreCase("dropper") && args.length == 6) {
             if (!(sender instanceof Player)) {
                 sender.sendMessage("This command can only be run by a player.");
                 return true;
@@ -184,19 +109,7 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
-        if (command.getName().equalsIgnoreCase("plot")) {
-            if (args.length == 1) {
-                completions.addAll(Arrays.asList("create", "claim", "list", "tp"));
-            } else if (args.length == 2 && args[0].equalsIgnoreCase("tp")) {
-                if (sender instanceof Player) {
-                    Player player = (Player) sender;
-                    int plotCount = plotManager.getPlayerPlotCount(player.getUniqueId());
-                    for (int i = 1; i <= plotCount; i++) {
-                        completions.add(String.valueOf(i));
-                    }
-                }
-            }
-        } else if (command.getName().equalsIgnoreCase("dropper")) {
+        if (command.getName().equalsIgnoreCase("dropper")) {
             if (args.length == 2 || args.length == 3) {
                 for (Material material : Material.values()) {
                     if (material.isBlock() && args.length == 2) {
@@ -236,11 +149,6 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlockPlaced();
-        if (!plotManager.canBuild(player, block.getLocation())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "You can only build within the 35x35 grass area of your plot.");
-            return;
-        }
 
         ItemStack item = event.getItemInHand();
         ItemMeta meta = item.getItemMeta();
@@ -293,11 +201,6 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
-        if (!plotManager.canBuild(player, block.getLocation())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "You can only break blocks within the 35x35 grass area of your plot.");
-            return;
-        }
 
         Dropper dropper = DropperManager.getDropper(block.getLocation());
         if (dropper != null) {
@@ -309,32 +212,8 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        Location from = event.getFrom();
-        Location to = event.getTo();
-
-        if (to == null) return;
-
-        Plot fromPlot = plotManager.getPlot(from.getBlockX(), from.getBlockZ());
-        Plot toPlot = plotManager.getPlot(to.getBlockX(), to.getBlockZ());
-
-        boolean wasInPlot = plotManager.isWithinBuildableArea(from, fromPlot);
-        boolean isInPlot = plotManager.isWithinBuildableArea(to, toPlot);
-
-        if (!wasInPlot && isInPlot) {
-            // Player has entered a plot's buildable area
-            if (toPlot.getOwner() == null) {
-                player.sendMessage(ChatColor.YELLOW + "You've entered an unclaimed plot. Use /plot claim to claim it.");
-            } else if (toPlot.isOwner(player.getUniqueId())) {
-                player.sendMessage(ChatColor.GREEN + "Welcome back to your plot!");
-            } else {
-                player.sendMessage(ChatColor.YELLOW + "You've entered a plot owned by " + Bukkit.getOfflinePlayer(toPlot.getOwner()).getName());
-            }
-        } else if (wasInPlot && !isInPlot) {
-            // Player has left a plot's buildable area
-            player.sendMessage(ChatColor.YELLOW + "You've left the plot area.");
-        }
-
         Block block = player.getLocation().getBlock();
+
         if (block.getType() == Material.LIGHT_WEIGHTED_PRESSURE_PLATE) {
             long currentTime = System.currentTimeMillis();
             long lastSell = lastSellTime.getOrDefault(player.getUniqueId(), 0L);
@@ -343,25 +222,6 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
                 lastSellTime.put(player.getUniqueId(), currentTime);
             }
         }
-    }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-            plotManager.loadPlayerDataAsync(player);
-            plotManager.loadPlayerChunks(player);
-        });
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-            plotManager.savePlayerDataAsync(player);
-            plotManager.unloadPlayerChunks(player);
-        });
-        lastSellTime.remove(player.getUniqueId());
     }
 
     private void sellItems(Player player) {
@@ -429,9 +289,5 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
 
     public Economy getEconomy() {
         return economy;
-    }
-
-    public TycoonConfig getTycoonConfig() {
-        return tycoonConfig;
     }
 }

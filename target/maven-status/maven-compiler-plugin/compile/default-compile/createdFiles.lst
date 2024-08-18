@@ -1,11 +1,6 @@
-me\nashplugz\tycoond\PlotManager.class
-me\nashplugz\tycoond\TeleportManager.class
+me\nashplugz\tycoond\Dropper.class
 me\nashplugz\tycoond\TycoonDroppers.class
 me\nashplugz\tycoond\DropperManager.class
 me\nashplugz\tycoond\NBTUtils.class
 me\nashplugz\tycoond\DropperItem.class
-me\nashplugz\tycoond\Plot.class
-me\nashplugz\tycoond\Dropper.class
-me\nashplugz\tycoond\PlotManager$1.class
-me\nashplugz\tycoond\TycoonWorldGenerator.class
 me\nashplugz\tycoond\TycoonConfig.class
