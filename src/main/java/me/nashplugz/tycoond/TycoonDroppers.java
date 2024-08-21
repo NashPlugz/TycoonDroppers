@@ -54,6 +54,9 @@ public class TycoonDroppers extends JavaPlugin implements Listener, CommandExecu
     }
 
     public static TycoonDroppers getInstance() {
+        if (instance == null) {
+            instance = new TycoonDroppers();
+        }
         return instance;
     }
 
